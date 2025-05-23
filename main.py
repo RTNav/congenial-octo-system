@@ -18,6 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# debug environment key
+print("OpenAI key loaded:", openai.api_key[:5] + "..." if openai.api_key else "None")
+
 class RequestData(BaseModel):
     prompt: str
     direct_lyrics: bool = True
