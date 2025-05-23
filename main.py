@@ -1,8 +1,12 @@
+import openai
+import os
 import json
 import random
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 
@@ -34,11 +38,30 @@ tone_map = {
 
 @app.post("/chat")
 def chat(req: RequestData):
-    if req.direct_lyrics:
-        candidates = [l for l in labeled_lyrics if l["mood"].lower() in tone_map.get(req.tone.lower(), [])]
-        if not candidates:
-            candidates = labeled_lyrics
-        lyric = random.choice(candidates)
-        return {"reply": f"\"{lyric['line']}\" — {lyric['song']}"}
-    else:
-        return {"reply": f"(Non-lyric mode not yet implemented)"}
+    try:
+        if req.direct_lyrics:
+            candidates = [l for l in labeled_lyrics if l["mood"].lower() in tone_map.get(req.tone.lower(), [])]
+            if not candidates:
+                candidates = labeled_lyrics
+            lyric = random.choice(candidates)
+            return {"reply": f"\"{lyric['line']}\" — {lyric['song']}"}
+        else:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a poetic, slightly cryptic assistant who always sounds like a "
+                            "Twenty One Pilots lyricist. Respond in one or two lines of poetic, emotional text."
+                        )
+                    },
+                    {"role": "user", "content": req.prompt}
+                ],
+                temperature=0.8
+            )
+            reply = response.choices[0].message["content"].strip()
+            return {"reply": reply}
+    except Exception as e:
+        print("ERROR:", e)
+        return {"reply": "Sorry, something went wrong. Like in life."}
