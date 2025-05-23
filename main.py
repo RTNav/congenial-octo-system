@@ -16,8 +16,8 @@ app.add_middleware(
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-with open("lyrics_data.json") as f:
-    lyrics_db = json.load(f)
+with open("lyrics_labeled.json", "r", encoding="utf-8") as f:
+    labeled_lyrics = json.load(f)
 
 @app.post("/chat")
 async def chat(request: Request):
