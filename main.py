@@ -1,41 +1,35 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-import openai
-import random
 import json
-import os
+import random
+from fastapi import FastAPI
+from pydantic import BaseModel
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+class RequestData(BaseModel):
+    prompt: str
+    direct_lyrics: bool = True
+    tone: str = "cryptic"
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
+# Load labeled lyrics
 with open("lyrics_labeled.json", "r", encoding="utf-8") as f:
     labeled_lyrics = json.load(f)
 
+# Tone category mapping
+tone_map = {
+    "cryptic": ["cryptic", "philosophical", "abstract"],
+    "hopeful": ["hopeful", "resilient", "inspirational"],
+    "dark": ["dark", "anxious", "melancholy"],
+    "chaotic": ["chaotic", "rebellious", "confused"],
+    "philosophical": ["philosophical", "reflective", "introspective"]
+}
+
 @app.post("/chat")
-async def chat(request: Request):
-    data = await request.json()
-    prompt = data.get("prompt")
-    direct_lyrics = data.get("direct_lyrics", True)
-    tone = data.get("tone", "cryptic")
-
-    if direct_lyrics:
-        matching_lyrics = [l for l in lyrics_db if l["mood"] == tone] or lyrics_db
-        lyric = random.choice(matching_lyrics)["line"]
-        reply = f"\"{lyric}\" — Twenty One Pilots"
+def chat(req: RequestData):
+    if req.direct_lyrics:
+        candidates = [l for l in labeled_lyrics if l["mood"].lower() in tone_map.get(req.tone.lower(), [])]
+        if not candidates:
+            candidates = labeled_lyrics
+        lyric = random.choice(candidates)
+        return {"reply": f"\"{lyric['line']}\" — {lyric['song']}"}
     else:
-        gpt_prompt = f"Respond in a {tone} tone using the style of a Twenty One Pilots lyric: {prompt}"
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": gpt_prompt}]
-        )
-        reply = response.choices[0].message.content.strip()
-
-    return { "reply": reply }
+        return {"reply": f"(Non-lyric mode not yet implemented)"}
